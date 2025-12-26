@@ -3,15 +3,18 @@
  * Initiates Google OAuth flow by redirecting to Google.
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getGoogleAuthUrl } from '@/lib/auth/google';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
         const authUrl = getGoogleAuthUrl();
+        console.log('Redirecting to Google OAuth:', authUrl);
         return NextResponse.redirect(authUrl);
     } catch (error) {
         console.error('Failed to initiate Google OAuth:', error);
-        return NextResponse.redirect('/login?error=oauth_init_failed');
+        // Use an absolute URL for the redirect
+        const url = new URL('/login?error=oauth_init_failed', request.url);
+        return NextResponse.redirect(url);
     }
 }

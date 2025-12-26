@@ -12,20 +12,29 @@ function getPool(): Pool {
   if (!pool) {
     const connectionConfig = process.env.CLOUD_SQL_CONNECTION_NAME
       ? {
-          // Cloud Run: Unix socket connection
-          host: `/cloudsql/${process.env.CLOUD_SQL_CONNECTION_NAME}`,
-          database: process.env.DB_NAME,
-          user: process.env.DB_USER,
-          password: process.env.DB_PASSWORD,
-        }
+        // Cloud Run: Unix socket connection
+        host: `/cloudsql/${process.env.CLOUD_SQL_CONNECTION_NAME}`,
+        database: process.env.DB_NAME,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+      }
       : {
-          // Local development: TCP connection
-          host: process.env.DB_HOST || 'localhost',
-          port: parseInt(process.env.DB_PORT || '5432', 10),
-          database: process.env.DB_NAME || 'nes_scorecard',
-          user: process.env.DB_USER || 'postgres',
-          password: process.env.DB_PASSWORD,
-        };
+        // Local development: TCP connection
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432', 10),
+        database: process.env.DB_NAME || 'nes_scorecard',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD,
+      };
+
+    const config = { ...connectionConfig };
+    console.log('--- DATABASE POOL INITIALIZING ---', {
+      host: config.host,
+      port: (config as any).port,
+      database: config.database,
+      user: config.user,
+      isCloud: !!process.env.CLOUD_SQL_CONNECTION_NAME
+    });
 
     pool = new Pool({
       ...connectionConfig,

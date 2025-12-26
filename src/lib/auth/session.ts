@@ -130,6 +130,34 @@ export async function createSession(user: {
  * Get the current session from cookies.
  */
 export async function getSession(): Promise<UserSession | null> {
+    // Development bypass
+    if (process.env.DEV_BYPASS_AUTH) {
+        console.log('--- AUTH BYPASS TRIGGERED ---', process.env.DEV_BYPASS_AUTH);
+        const userResult = await query<{ id: string; email: string; name: string | null; last_login_at: Date | null }>(
+            'SELECT id, email, name, last_login_at FROM users WHERE email = $1',
+            [process.env.DEV_BYPASS_AUTH]
+        );
+
+        if (userResult.rows.length === 0) {
+            console.error('--- AUTH BYPASS FAILED: User not found ---', process.env.DEV_BYPASS_AUTH);
+        } else {
+            const user = userResult.rows[0];
+            const rolesResult = await query<{ role: string; area: string }>(
+                'SELECT role, area FROM user_roles WHERE user_id = $1',
+                [user.id]
+            );
+
+            console.log('--- AUTH BYPASS SUCCESS ---', { userId: user.id, roles: rolesResult.rows.length });
+            return {
+                userId: user.id,
+                email: user.email,
+                name: user.name,
+                authProvider: 'google',
+                roles: rolesResult.rows,
+            };
+        }
+    }
+
     const cookieStore = await cookies();
     const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
