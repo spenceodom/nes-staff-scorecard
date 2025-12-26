@@ -10,8 +10,8 @@ import { requireSession } from '@/lib/auth/session';
 import { canViewDashboard, buildAreaFilter, canAccessArea } from '@/lib/auth/authorization';
 
 const querySchema = z.object({
-    month: z.string().regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format'),
-    area: z.string().optional(),
+    month: z.string().regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format').nullable().optional(),
+    area: z.string().nullable().optional(),
 });
 
 interface StaffRow {
@@ -36,11 +36,27 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
-        const searchParams = request.nextUrl.searchParams;
-        const { month, area } = querySchema.parse({
-            month: searchParams.get('month'),
-            area: searchParams.get('area'),
+        const { searchParams } = new URL(request.url);
+        const monthParam = searchParams.get('month');
+        const areaParam = searchParams.get('area');
+
+        const parsed = querySchema.safeParse({
+            month: monthParam,
+            area: areaParam,
         });
+
+        if (!parsed.success) {
+            console.error('--- DASHBOARD VALIDATION FAILED ---', parsed.error.issues);
+            return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+        }
+
+        let { month, area } = parsed.data;
+
+        // Default to current month if missing
+        if (!month) {
+            const now = new Date();
+            month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
 
         // Build area filter
         const areaFilter = buildAreaFilter(session, 'r.area');
@@ -157,6 +173,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
+            console.error('--- DASHBOARD VALIDATION ERROR ---', error.format());
             return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
         }
 
@@ -165,6 +182,9 @@ export async function GET(request: NextRequest) {
         }
 
         console.error('Dashboard error:', error);
-        return NextResponse.json({ error: 'Failed to load dashboard' }, { status: 500 });
+        return NextResponse.json({
+            error: 'Failed to load dashboard',
+            details: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
     }
 }

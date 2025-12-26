@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
 
         const searchParams = request.nextUrl.searchParams;
         const { month, area, status } = listSchema.parse({
-            month: searchParams.get('month'),
-            area: searchParams.get('area'),
+            month: searchParams.get('month') ?? undefined,
+            area: searchParams.get('area') ?? undefined,
             status: searchParams.get('status') || 'all',
         });
 

@@ -41,10 +41,18 @@ export function isSuperAdmin(session: UserSession): boolean {
 }
 
 /**
- * Check if user has global access (super_admin or exec).
+ * Check if user has global access (either via role or global area assignment).
  */
 export function hasGlobalAccess(session: UserSession): boolean {
-    return GLOBAL_ROLES.some((role) => hasRole(session, role));
+    // Check for hardcoded global roles
+    const hasGlobalRole = GLOBAL_ROLES.some((role) =>
+        session.roles.some((r) => r.role === role)
+    );
+
+    // Also check if ANY role is assigned to the 'global' area
+    const hasGlobalAssignment = session.roles.some((r) => r.area === 'global');
+
+    return hasGlobalRole || hasGlobalAssignment;
 }
 
 /**

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
         const searchParams = request.nextUrl.searchParams;
         const { month } = querySchema.parse({
-            month: searchParams.get('month'),
+            month: searchParams.get('month') ?? undefined,
         });
 
         // Get all assignments for this evaluator
