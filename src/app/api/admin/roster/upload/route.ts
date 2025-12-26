@@ -15,9 +15,10 @@ import { canUploadRoster, canAccessArea } from '@/lib/auth/authorization';
 
 // Paylocity column mappings (case-insensitive)
 const PAYLOCITY_COLUMNS = {
-    employeeId: ['Employee ID', 'EmployeeId', 'Emp ID', 'EmpID', 'employee_id'],
+    employeeId: ['Employee ID', 'EmployeeId', 'Emp ID', 'EmpID', 'employee_id', 'Count of Employee Id'],
     firstName: ['First Name', 'FirstName', 'first_name'],
     lastName: ['Last Name', 'LastName', 'last_name'],
+    fullName: ['Full Name', 'FullName', 'Employee Name', 'Count of Employee Name', 'employee_name'],
     position: ['Position Description', 'Position', 'Job Title', 'position'],
     location: ['Location Description', 'Location', 'location'],
     workEmail: ['Work Email', 'WorkEmail', 'Email', 'work_email', 'email'],
@@ -50,7 +51,9 @@ function findColumn(headers: string[], candidates: string[]): number {
 }
 
 function parseCSV(content: string): { headers: string[]; rows: string[][] } {
-    const lines = content.split(/\r?\n/).filter((line) => line.trim());
+    // Strip BOM and other invisible characters if present
+    const cleanContent = content.replace(/^[\uFEFF\u200B\u00A0]+/, '');
+    const lines = cleanContent.split(/\r?\n/).filter((line) => line.trim());
     if (lines.length === 0) {
         throw new Error('Empty CSV file');
     }
@@ -100,18 +103,21 @@ function mapLocationToArea(location: string): string {
 function parseRosterCSV(content: string): ParsedRow[] {
     const { headers, rows } = parseCSV(content);
 
+    console.log('--- ROSTER CSV HEADERS ---', headers);
+
     // Find column indices
     const empIdIdx = findColumn(headers, PAYLOCITY_COLUMNS.employeeId);
     const firstNameIdx = findColumn(headers, PAYLOCITY_COLUMNS.firstName);
     const lastNameIdx = findColumn(headers, PAYLOCITY_COLUMNS.lastName);
+    const fullNameIdx = findColumn(headers, PAYLOCITY_COLUMNS.fullName);
     const positionIdx = findColumn(headers, PAYLOCITY_COLUMNS.position);
     const locationIdx = findColumn(headers, PAYLOCITY_COLUMNS.location);
     const emailIdx = findColumn(headers, PAYLOCITY_COLUMNS.workEmail);
 
     // Validate required columns
     if (empIdIdx === -1) throw new Error('Employee ID column not found');
-    if (firstNameIdx === -1 && lastNameIdx === -1) {
-        throw new Error('First Name or Last Name column not found');
+    if (firstNameIdx === -1 && lastNameIdx === -1 && fullNameIdx === -1) {
+        throw new Error('Name column not found (expected First/Last or Full Name)');
     }
     if (positionIdx === -1) throw new Error('Position column not found');
     if (locationIdx === -1) throw new Error('Location column not found');
@@ -119,9 +125,14 @@ function parseRosterCSV(content: string): ParsedRow[] {
     return rows
         .filter((row) => row[empIdIdx]?.trim()) // Skip rows without employee ID
         .map((row) => {
-            const firstName = firstNameIdx >= 0 ? row[firstNameIdx]?.trim() || '' : '';
-            const lastName = lastNameIdx >= 0 ? row[lastNameIdx]?.trim() || '' : '';
-            const employeeName = `${lastName}, ${firstName}`.replace(/^, /, '').replace(/, $/, '');
+            let employeeName = '';
+            if (fullNameIdx >= 0) {
+                employeeName = row[fullNameIdx]?.trim() || '';
+            } else {
+                const firstName = firstNameIdx >= 0 ? row[firstNameIdx]?.trim() || '' : '';
+                const lastName = lastNameIdx >= 0 ? row[lastNameIdx]?.trim() || '' : '';
+                employeeName = `${lastName}, ${firstName}`.replace(/^, /, '').replace(/, $/, '');
+            }
             const location = row[locationIdx]?.trim() || '';
 
             return {
